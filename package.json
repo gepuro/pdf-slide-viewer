@@ -1,0 +1,80 @@
+{
+  "name": "pdf-slide-viewer",
+  "version": "1.0.0",
+  "description": "A dual-screen PDF presentation viewer for macOS",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gepuro/pdf-slide-viewer.git"
+  },
+  "homepage": "https://github.com/gepuro/pdf-slide-viewer",
+  "bugs": {
+    "url": "https://github.com/gepuro/pdf-slide-viewer/issues"
+  },
+  "main": "dist-electron/main/index.js",
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "npm run build:native && npm run build:electron && concurrently -k \"vite\" \"tsc -p tsconfig.electron.json --watch --preserveWatchOutput\" \"wait-on http://127.0.0.1:5173 dist-electron/main/index.js && electron .\"",
+    "build": "npm run build:native && npm run typecheck && npm run build:electron && vite build && npm run verify:renderer",
+    "build:native": "mkdir -p native-bin/module-cache && xcrun swiftc native/display-info.swift -target arm64-apple-macos13.0 -module-cache-path native-bin/module-cache -framework CoreGraphics -o native-bin/display-info",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "verify:renderer": "node scripts/verify-renderer-build.cjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dist": "npm run build && electron-builder --mac dmg --arm64",
+    "pack": "npm run build && electron-builder --mac dir --arm64"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^6.0.227",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "concurrently": "^9.2.1",
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.3",
+    "jsdom": "^29.1.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "jp.local.pdf-presenter",
+    "productName": "PDF Slide Viewer",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "native-bin/display-info",
+        "to": "display-info"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "PDF Slide Viewer ${version}",
+      "artifactName": "PDF-Slide-Viewer-${version}-${arch}.${ext}"
+    }
+  }
+}

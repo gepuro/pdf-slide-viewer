@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build DMG
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Create GitHub Release
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          dist/PDF-Slide-Viewer-*-arm64.dmg
+          dist/PDF-Slide-Viewer-*-arm64.dmg.blockmap
+          --generate-notes
+          --title "PDF Slide Viewer $GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ github.token }}
