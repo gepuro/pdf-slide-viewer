@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dist": "npm run build && electron-builder --mac dmg --arm64",
+    "dist": "npm run build && electron-builder --mac dmg --arm64 --publish never",
     "pack": "npm run build && electron-builder --mac dir --arm64"
   },
   "dependencies": {
