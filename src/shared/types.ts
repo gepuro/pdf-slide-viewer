@@ -67,6 +67,7 @@ export interface PresenterApi {
   getState: () => Promise<PresentationState>;
   startPresentation: () => Promise<StartPresentationResult>;
   stopPresentation: () => Promise<void>;
+  setWindowFullScreen: (enabled: boolean) => Promise<void>;
   sendCommand: (command: PresentationCommand) => Promise<void>;
   onStateChange: (listener: (state: PresentationState) => void) => () => void;
   onDisplaySetupChange: (listener: (setup: DisplaySetup) => void) => () => void;

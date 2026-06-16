@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type {
   DisplaySetup,
@@ -15,6 +15,12 @@ import {
 import { PageCanvas } from "./PageCanvas";
 import { validatePdf } from "./pdf";
 
+const TILE_ZOOM_MIN = 50;
+const TILE_ZOOM_MAX = 200;
+const TILE_ZOOM_STEP = 10;
+const DEFAULT_TILE_ZOOM_PERCENT = 100;
+const TILE_THUMBNAIL_BASE_WIDTH = 180;
+
 export function App() {
   const view = new URLSearchParams(window.location.search).get("view");
   const state = usePresentationState();
@@ -26,7 +32,15 @@ export function App() {
   return <PresenterView state={state} pdf={pdf} pdfError={error} />;
 }
 
-function usePresentationKeys(state: PresentationState, enabled = true) {
+function usePresentationKeys(
+  state: PresentationState,
+  enabled = true,
+  slideFullScreen?: {
+    isActive: boolean;
+    onToggle: () => void;
+    onExit: () => void;
+  },
+) {
   const numberBuffer = useRef("");
   const numberTimer = useRef<number | null>(null);
 
@@ -42,7 +56,19 @@ function usePresentationKeys(state: PresentationState, enabled = true) {
     };
     const handleKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (target.matches("input, select, textarea, button")) return;
+      if (target.matches("input, select, textarea") || target.isContentEditable) return;
+      if (target.matches("button") && event.key === " ") return;
+      if (
+        (event.key === "f" || event.key === "F") &&
+        slideFullScreen &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        event.preventDefault();
+        slideFullScreen.onToggle();
+        return;
+      }
 
       const commands: Record<string, PresentationCommand> = {
         ArrowRight: { type: "next" },
@@ -66,8 +92,13 @@ function usePresentationKeys(state: PresentationState, enabled = true) {
         numberTimer.current = window.setTimeout(commitNumber, 900);
       } else if (event.key === "Enter") {
         commitNumber();
-      } else if (event.key === "Escape" && state.isPresenting) {
-        void window.presenter.stopPresentation();
+      } else if (event.key === "Escape") {
+        if (slideFullScreen?.isActive) {
+          event.preventDefault();
+          slideFullScreen.onExit();
+        } else if (state.isPresenting) {
+          void window.presenter.stopPresentation();
+        }
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -75,7 +106,7 @@ function usePresentationKeys(state: PresentationState, enabled = true) {
       window.removeEventListener("keydown", handleKey);
       if (numberTimer.current) window.clearTimeout(numberTimer.current);
     };
-  }, [enabled, state.isPresenting]);
+  }, [enabled, slideFullScreen, state.isPresenting]);
 }
 
 function AudienceView({
@@ -112,10 +143,35 @@ function PresenterView({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [viewMode, setViewMode] = useState<SlideNavigatorMode>("list");
+  const [tileZoomPercent, setTileZoomPercent] = useState(DEFAULT_TILE_ZOOM_PERCENT);
+  const [isSlideFullScreen, setIsSlideFullScreen] = useState(false);
   const displaySetup = useDisplaySetup();
   const { clock, elapsed } = useClock(state.startedAt);
 
-  usePresentationKeys(state, Boolean(state.document));
+  const setSlideFullScreen = useCallback((enabled: boolean) => {
+    setIsSlideFullScreen(enabled);
+    void window.presenter.setWindowFullScreen(enabled);
+  }, []);
+
+  const toggleSlideFullScreen = useCallback(() => {
+    setSlideFullScreen(!isSlideFullScreen);
+  }, [isSlideFullScreen, setSlideFullScreen]);
+
+  const exitSlideFullScreen = useCallback(() => {
+    setSlideFullScreen(false);
+  }, [setSlideFullScreen]);
+
+  const slideFullScreenKeys = useMemo(
+    () => ({
+      isActive: isSlideFullScreen,
+      onToggle: toggleSlideFullScreen,
+      onExit: exitSlideFullScreen,
+    }),
+    [exitSlideFullScreen, isSlideFullScreen, toggleSlideFullScreen],
+  );
+
+  usePresentationKeys(state, Boolean(state.document), slideFullScreenKeys);
 
   const importPdf = useCallback(async (selection: PdfSelection | null) => {
     if (!selection) return;
@@ -225,68 +281,349 @@ function PresenterView({
       {state.warning ? <div className="warning-banner">{state.warning}</div> : null}
       {loadError || pdfError ? <div className="error-banner dashboard-error">{loadError || pdfError}</div> : null}
 
-      <section className="presenter-grid">
-        <div className="current-panel panel">
-          <div className="panel-label">
-            <span>現在のスライド</span>
-            <strong>{state.page} / {state.document.pageCount}</strong>
-          </div>
-          <div className="slide-frame current-frame">
-            <PageCanvas pdf={pdf} pageNumber={state.page} />
-            <div className={`preview-blackout ${state.isBlack ? "visible" : ""}`}>
-              <span>聴衆画面は黒画面です</span>
-            </div>
-          </div>
-        </div>
+      {viewMode === "tile" ? (
+        <SlideTileOverview
+          state={state}
+          pdf={pdf}
+          mode={viewMode}
+          onModeChange={setViewMode}
+          zoomPercent={tileZoomPercent}
+        />
+      ) : (
+        <section className="presenter-grid">
+          <SlideNavigator
+            state={state}
+            pdf={pdf}
+            mode={viewMode}
+            onModeChange={setViewMode}
+          />
 
-        <aside className="side-column">
-          <div className="next-panel panel">
+          <div className="current-panel panel">
             <div className="panel-label">
-              <span>次のスライド</span>
-              <strong>{Math.min(state.page + 1, state.document.pageCount)}</strong>
+              <span>現在のスライド</span>
+              <strong>{state.page} / {state.document.pageCount}</strong>
             </div>
-            <div className="slide-frame next-frame">
-              {state.page < state.document.pageCount ? (
-                <PageCanvas pdf={pdf} pageNumber={state.page + 1} />
-              ) : (
-                <div className="end-card">最後のスライドです</div>
-              )}
+            <div className="slide-frame current-frame">
+              <PageCanvas pdf={pdf} pageNumber={state.page} />
+              <div className={`preview-blackout ${state.isBlack ? "visible" : ""}`}>
+                <span>聴衆画面は黒画面です</span>
+              </div>
             </div>
           </div>
 
-          {!state.isPresenting ? (
-            <div className="launch-panel panel">
-              <label>ディスプレイ設定</label>
-              <div className="display-auto-card">
-                <span className="display-auto-icon" aria-hidden="true">◎</span>
-                <div>
-                  <strong>{displaySetupTitle(displaySetup)}</strong>
-                  <p>{displaySetupDescription(displaySetup)}</p>
-                </div>
+          <aside className="side-column">
+            <div className="next-panel panel">
+              <div className="panel-label">
+                <span>次のスライド</span>
+                <strong>{Math.min(state.page + 1, state.document.pageCount)}</strong>
               </div>
-              {displaySetup.warning ? (
-                <div className="practice-note">{displaySetup.warning}</div>
-              ) : null}
-              <button className="primary-button" type="button" onClick={start}>
-                プレゼンテーションを開始
-              </button>
-              <button className="text-button" type="button" onClick={choosePdf}>
-                別のPDFを開く
-              </button>
+              <div className="slide-frame next-frame">
+                {state.page < state.document.pageCount ? (
+                  <PageCanvas pdf={pdf} pageNumber={state.page + 1} />
+                ) : (
+                  <div className="end-card">最後のスライドです</div>
+                )}
+              </div>
             </div>
-          ) : (
-            <Navigation state={state} />
-          )}
-        </aside>
-      </section>
+
+            {!state.isPresenting ? (
+              <div className="launch-panel panel">
+                <label>ディスプレイ設定</label>
+                <div className="display-auto-card">
+                  <span className="display-auto-icon" aria-hidden="true">◎</span>
+                  <div>
+                    <strong>{displaySetupTitle(displaySetup)}</strong>
+                    <p>{displaySetupDescription(displaySetup)}</p>
+                  </div>
+                </div>
+                {displaySetup.warning ? (
+                  <div className="practice-note">{displaySetup.warning}</div>
+                ) : null}
+                <button className="primary-button" type="button" onClick={start}>
+                  プレゼンテーションを開始
+                </button>
+                <button className="text-button" type="button" onClick={choosePdf}>
+                  別のPDFを開く
+                </button>
+              </div>
+            ) : (
+              <Navigation state={state} />
+            )}
+          </aside>
+        </section>
+      )}
 
       <footer className="shortcut-bar">
-        <span><kbd>←</kbd><kbd>→</kbd> スライド移動</span>
-        <span><kbd>B</kbd> 黒画面</span>
-        <span><kbd>数字</kbd> ページ指定</span>
-        <span><kbd>Esc</kbd> 終了</span>
+        <div className="shortcut-hints">
+          <span><kbd>←</kbd><kbd>→</kbd> スライド移動</span>
+          <span><kbd>F</kbd> スライド全画面</span>
+          <span><kbd>B</kbd> 黒画面</span>
+          <span><kbd>数字</kbd> ページ指定</span>
+          <span><kbd>Esc</kbd> 終了</span>
+        </div>
+        {viewMode === "tile" ? (
+          <TileZoomControl
+            zoomPercent={tileZoomPercent}
+            onZoomChange={setTileZoomPercent}
+          />
+        ) : null}
       </footer>
+      {isSlideFullScreen ? (
+        <SlideFullScreenView state={state} pdf={pdf} />
+      ) : null}
     </main>
+  );
+}
+
+type SlideNavigatorMode = "list" | "tile";
+
+function SlideFullScreenView({
+  state,
+  pdf,
+}: {
+  state: PresentationState;
+  pdf: PDFDocumentProxy | null;
+}) {
+  return (
+    <div className="slide-fullscreen-view" aria-label="現在のスライド全画面表示">
+      <PageCanvas pdf={pdf} pageNumber={state.page} className="slide-fullscreen-page" />
+      <div className={`blackout ${state.isBlack ? "visible" : ""}`} />
+    </div>
+  );
+}
+
+function SlideNavigator({
+  state,
+  pdf,
+  mode,
+  onModeChange,
+}: {
+  state: PresentationState;
+  pdf: PDFDocumentProxy | null;
+  mode: SlideNavigatorMode;
+  onModeChange: (mode: SlideNavigatorMode) => void;
+}) {
+  return (
+    <aside className="slide-navigator panel" aria-label="スライド一覧">
+      <NavigatorHeader state={state} mode={mode} onModeChange={onModeChange} />
+      <ThumbnailList state={state} pdf={pdf} layout="list" />
+    </aside>
+  );
+}
+
+function SlideTileOverview({
+  state,
+  pdf,
+  mode,
+  onModeChange,
+  zoomPercent,
+}: {
+  state: PresentationState;
+  pdf: PDFDocumentProxy | null;
+  mode: SlideNavigatorMode;
+  onModeChange: (mode: SlideNavigatorMode) => void;
+  zoomPercent: number;
+}) {
+  return (
+    <section className="tile-overview panel" aria-label="スライドのタイル表示">
+      <NavigatorHeader state={state} mode={mode} onModeChange={onModeChange} />
+      <ThumbnailList state={state} pdf={pdf} layout="tile" zoomPercent={zoomPercent} />
+    </section>
+  );
+}
+
+function NavigatorHeader({
+  state,
+  mode,
+  onModeChange,
+}: {
+  state: PresentationState;
+  mode: SlideNavigatorMode;
+  onModeChange: (mode: SlideNavigatorMode) => void;
+}) {
+  const pageCount = state.document?.pageCount ?? 0;
+
+  return (
+    <div className="navigator-header">
+      <div>
+        <span>スライド</span>
+        <strong>{state.page} / {pageCount}</strong>
+      </div>
+      <div className="view-toggle" aria-label="スライド一覧の表示切替">
+        <button
+          type="button"
+          className={mode === "list" ? "active" : ""}
+          aria-pressed={mode === "list"}
+          onClick={() => onModeChange("list")}
+        >
+          リスト
+        </button>
+        <button
+          type="button"
+          className={mode === "tile" ? "active" : ""}
+          aria-pressed={mode === "tile"}
+          onClick={() => onModeChange("tile")}
+        >
+          タイル
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ThumbnailList({
+  state,
+  pdf,
+  layout,
+  zoomPercent = DEFAULT_TILE_ZOOM_PERCENT,
+}: {
+  state: PresentationState;
+  pdf: PDFDocumentProxy | null;
+  layout: SlideNavigatorMode;
+  zoomPercent?: number;
+}) {
+  const thumbnailRefs = useRef(new Map<number, HTMLButtonElement>());
+  const pageCount = state.document?.pageCount ?? 0;
+  const pages = useMemo(
+    () => Array.from({ length: pageCount }, (_, index) => index + 1),
+    [pageCount],
+  );
+
+  useEffect(() => {
+    const activeThumbnail = thumbnailRefs.current.get(state.page);
+    activeThumbnail?.scrollIntoView({ block: "nearest" });
+  }, [layout, state.page]);
+
+  const goToPage = (page: number) => {
+    void window.presenter.sendCommand({ type: "go-to", page });
+  };
+
+  const listStyle =
+    layout === "tile"
+      ? ({
+          "--tile-thumbnail-width": `${tileZoomToThumbnailWidth(zoomPercent)}px`,
+        } as CSSProperties)
+      : undefined;
+
+  return (
+    <div className={`thumbnail-list ${layout}`} style={listStyle}>
+      {pages.map((page) => (
+        <button
+          key={page}
+          ref={(node) => {
+            if (node) {
+              thumbnailRefs.current.set(page, node);
+            } else {
+              thumbnailRefs.current.delete(page);
+            }
+          }}
+          type="button"
+          className={`slide-thumbnail ${state.page === page ? "active" : ""}`}
+          aria-current={state.page === page ? "page" : undefined}
+          aria-label={`${page}ページへ移動`}
+          onClick={() => goToPage(page)}
+        >
+          <LazySlideThumbnail
+            pdf={pdf}
+            pageNumber={page}
+            isActive={state.page === page}
+          />
+          <span className="thumbnail-number">{page}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TileZoomControl({
+  zoomPercent,
+  onZoomChange,
+}: {
+  zoomPercent: number;
+  onZoomChange: (zoomPercent: number) => void;
+}) {
+  const changeZoom = (nextZoom: number) => {
+    onZoomChange(clampTileZoom(nextZoom));
+  };
+
+  return (
+    <div className="tile-zoom-control" aria-label="タイル表示のズーム">
+      <button
+        type="button"
+        aria-label="縮小"
+        disabled={zoomPercent <= TILE_ZOOM_MIN}
+        onClick={() => changeZoom(zoomPercent - TILE_ZOOM_STEP)}
+      >
+        −
+      </button>
+      <input
+        type="range"
+        min={TILE_ZOOM_MIN}
+        max={TILE_ZOOM_MAX}
+        step={TILE_ZOOM_STEP}
+        value={zoomPercent}
+        aria-label="タイル表示のズーム"
+        onChange={(event) => changeZoom(Number(event.currentTarget.value))}
+      />
+      <button
+        type="button"
+        aria-label="拡大"
+        disabled={zoomPercent >= TILE_ZOOM_MAX}
+        onClick={() => changeZoom(zoomPercent + TILE_ZOOM_STEP)}
+      >
+        +
+      </button>
+      <output>{zoomPercent}%</output>
+    </div>
+  );
+}
+
+function clampTileZoom(zoomPercent: number): number {
+  return Math.min(TILE_ZOOM_MAX, Math.max(TILE_ZOOM_MIN, zoomPercent));
+}
+
+function tileZoomToThumbnailWidth(zoomPercent: number): number {
+  return Math.round(TILE_THUMBNAIL_BASE_WIDTH * (clampTileZoom(zoomPercent) / 100));
+}
+
+function LazySlideThumbnail({
+  pdf,
+  pageNumber,
+  isActive,
+}: {
+  pdf: PDFDocumentProxy | null;
+  pageNumber: number;
+  isActive: boolean;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [isNearViewport, setIsNearViewport] = useState(isActive);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    if (!("IntersectionObserver" in window)) {
+      setIsNearViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsNearViewport(entry.isIntersecting);
+      },
+      { rootMargin: "520px 0px" },
+    );
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={hostRef} className="thumbnail-canvas">
+      {isActive || isNearViewport ? (
+        <PageCanvas pdf={pdf} pageNumber={pageNumber} className="thumbnail-page" />
+      ) : (
+        <div className="thumbnail-placeholder" />
+      )}
+    </div>
   );
 }
 

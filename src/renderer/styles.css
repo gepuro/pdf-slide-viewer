@@ -281,7 +281,7 @@ button {
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(330px, 31%);
+  grid-template-columns: 244px minmax(0, 1fr) minmax(320px, 28%);
   gap: 18px;
   padding: 18px 22px;
 }
@@ -292,12 +292,201 @@ button {
   background: #10151e;
 }
 
+.slide-navigator,
 .current-panel,
 .next-panel {
   min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 14px;
+}
+
+.slide-navigator {
+  overflow: hidden;
+}
+
+.tile-overview {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 18px 22px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.tile-overview .navigator-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #222936;
+}
+
+.navigator-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.navigator-header span,
+.navigator-header strong {
+  display: block;
+}
+
+.navigator-header span {
+  color: #7f899a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.navigator-header strong {
+  margin-top: 3px;
+  color: #cdd3de;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.view-toggle {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border: 1px solid #303746;
+  border-radius: 8px;
+  background: #0d1118;
+}
+
+.view-toggle button {
+  min-width: 54px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  color: #7f8a9f;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.view-toggle button.active {
+  color: #eef2ff;
+  background: #2b3650;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+.thumbnail-list {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.thumbnail-list.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.thumbnail-list.tile {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-thumbnail-width, 180px), 1fr));
+  align-content: start;
+  gap: 14px;
+  padding: 2px 4px 2px 0;
+}
+
+.slide-thumbnail {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  border: 1px solid #263041;
+  border-radius: 8px;
+  color: #8c97aa;
+  background: #141a24;
+  cursor: pointer;
+}
+
+.slide-thumbnail:hover {
+  border-color: #46536b;
+  background: #192231;
+}
+
+.slide-thumbnail.active {
+  color: #f2f5ff;
+  border-color: #7590ff;
+  background: #223052;
+  box-shadow: 0 0 0 1px rgba(117, 144, 255, 0.25) inset;
+}
+
+.thumbnail-list.tile .slide-thumbnail {
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 8px;
+}
+
+.thumbnail-number {
+  width: 24px;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.thumbnail-list.tile .thumbnail-number {
+  width: auto;
+  font-size: 12px;
+}
+
+.thumbnail-canvas {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 5px;
+  background:
+    linear-gradient(45deg, #1a202b 25%, transparent 25%),
+    linear-gradient(-45deg, #1a202b 25%, transparent 25%),
+    #0f141d;
+  background-size: 10px 10px;
+}
+
+.thumbnail-list.list .thumbnail-canvas {
+  order: 2;
+}
+
+.thumbnail-list.tile .thumbnail-canvas {
+  width: 100%;
+}
+
+.thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  background: #171e2a;
+}
+
+.thumbnail-page canvas {
+  box-shadow: none;
+}
+
+.thumbnail-page .canvas-loader,
+.thumbnail-page .canvas-error {
+  color: transparent;
+  background: #151c27;
+}
+
+.thumbnail-page .canvas-loader::after {
+  width: 12px;
+  height: 12px;
+  margin-top: 0;
+  border-width: 2px;
 }
 
 .panel-label {
@@ -510,6 +699,22 @@ button {
   font-size: 13px;
 }
 
+.slide-fullscreen-view {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow: hidden;
+  background: #000;
+}
+
+.slide-fullscreen-page {
+  background: #000;
+}
+
+.slide-fullscreen-page canvas {
+  box-shadow: none;
+}
+
 .end-card {
   width: 100%;
   height: 100%;
@@ -601,12 +806,73 @@ button {
   min-height: 38px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 28px;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 18px;
   border-top: 1px solid #202631;
   color: #687487;
   background: #0d1119;
   font-size: 10px;
+}
+
+.shortcut-hints {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  overflow: hidden;
+}
+
+.shortcut-hints span {
+  flex: 0 0 auto;
+}
+
+.tile-zoom-control {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8b95a7;
+}
+
+.tile-zoom-control button {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #303847;
+  border-radius: 50%;
+  color: #bac3d2;
+  background: #171d27;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tile-zoom-control button:hover:not(:disabled) {
+  border-color: #4b5870;
+  background: #222a38;
+}
+
+.tile-zoom-control button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.tile-zoom-control input[type="range"] {
+  width: 132px;
+  height: 20px;
+  margin: 0;
+  accent-color: #8ea1ff;
+}
+
+.tile-zoom-control output {
+  width: 38px;
+  color: #b4bdcc;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 kbd {
@@ -655,7 +921,9 @@ kbd {
 
 @media (max-width: 1050px) {
   .presenter-grid {
-    grid-template-columns: minmax(0, 1fr) 330px;
+    grid-template-columns: 196px minmax(0, 1fr) 300px;
+    gap: 12px;
+    padding: 14px;
   }
 
   .topbar {
@@ -664,5 +932,29 @@ kbd {
 
   .topbar-center {
     display: none;
+  }
+
+  .view-toggle {
+    grid-template-columns: 1fr;
+  }
+
+  .view-toggle button {
+    min-width: 48px;
+  }
+
+  .tile-overview {
+    margin: 14px;
+  }
+
+  .shortcut-bar {
+    padding: 0 12px;
+  }
+
+  .shortcut-hints {
+    gap: 14px;
+  }
+
+  .tile-zoom-control input[type="range"] {
+    width: 96px;
   }
 }

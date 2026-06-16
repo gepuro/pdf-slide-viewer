@@ -389,6 +389,11 @@ function registerIpc(): void {
   });
   ipcMain.handle("pdf:data", () => store.getPdfData());
   ipcMain.handle("display:setup", () => currentDisplaySetup);
+  ipcMain.handle("window:set-fullscreen", (event, enabled: boolean) => {
+    const targetWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    targetWindow.setFullScreen(enabled);
+  });
   ipcMain.handle("presentation:state", () => store.getState());
   ipcMain.handle("presentation:command", (_event, command: PresentationCommand) => {
     store.command(command);

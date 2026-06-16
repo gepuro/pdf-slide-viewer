@@ -16,6 +16,8 @@ const api: PresenterApi = {
   getState: () => ipcRenderer.invoke("presentation:state"),
   startPresentation: () => ipcRenderer.invoke("presentation:start"),
   stopPresentation: () => ipcRenderer.invoke("presentation:stop"),
+  setWindowFullScreen: (enabled: boolean) =>
+    ipcRenderer.invoke("window:set-fullscreen", enabled),
   sendCommand: (command: PresentationCommand) =>
     ipcRenderer.invoke("presentation:command", command),
   onStateChange: (listener) => {
