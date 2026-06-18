@@ -12,13 +12,27 @@ macOS向けの、発表者画面と聴衆画面を持つPDFプレゼンテーシ
 - スライド一覧のリスト表示 / タイル表示切り替え
 - 聴衆画面の黒画面切り替え
 
-ビルド済みアプリは[GitHub Releases v1.0.1](https://github.com/gepuro/pdf-slide-viewer/releases/tag/v1.0.1)からダウンロードできます。
+ビルド済みアプリは[GitHub Releases](https://github.com/gepuro/pdf-slide-viewer/releases/latest)からダウンロードできます。配布されるDMGにはElectronランタイムと必要なアプリ資産が同梱されているため、利用者のMacにNode.jsやnpmをインストールする必要はありません。
 
 ## 必要環境
+
+利用者向け:
+
+- macOS 13以降
+- Apple Silicon Mac
+
+開発者向け:
 
 - macOS 13以降
 - Apple Silicon Mac
 - Node.js 22以降
+- npm
+
+## インストール
+
+1. [Latest Release](https://github.com/gepuro/pdf-slide-viewer/releases/latest)から `PDF-Slide-Viewer-*-arm64.dmg` をダウンロードします。
+2. DMGを開き、`PDF Slide Viewer.app` をApplicationsへコピーします。
+3. 初回起動時にmacOSの警告が表示される場合は、Finderでアプリを右クリックして「開く」を選択してください。
 
 ## 開発実行
 
@@ -38,6 +52,7 @@ npm run build
 
 ```bash
 npm run dist
+npm run verify:package
 ```
 
 成果物は `dist/` またはelectron-builderの出力ディレクトリに生成されます。署名・公証を行っていないため、初回起動時にmacOSのセキュリティ確認が表示される場合があります。

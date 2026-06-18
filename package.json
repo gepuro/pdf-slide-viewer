@@ -1,6 +1,6 @@
 {
   "name": "pdf-slide-viewer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A dual-screen PDF presentation viewer for macOS",
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
     "build:native": "mkdir -p native-bin/module-cache && xcrun swiftc native/display-info.swift -target arm64-apple-macos13.0 -module-cache-path native-bin/module-cache -framework CoreGraphics -o native-bin/display-info",
     "build:electron": "tsc -p tsconfig.electron.json",
     "verify:renderer": "node scripts/verify-renderer-build.cjs",
+    "verify:package": "node scripts/verify-package.cjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -32,6 +33,7 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@electron/asar": "^3.4.1",
     "@types/node": "^25.9.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

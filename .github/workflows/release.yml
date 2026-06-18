@@ -32,6 +32,9 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
+      - name: Verify packaged app
+        run: npm run verify:package
+
       - name: Create GitHub Release
         run: >-
           gh release create "$GITHUB_REF_NAME"
